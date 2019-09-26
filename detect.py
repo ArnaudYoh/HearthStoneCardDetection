@@ -7,7 +7,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = "cpu"
 
 # Load model checkpoint
-checkpoint = 'BEST_checkpoint.tar'
+checkpoint = 'BEST_checkpoint_done.tar'
 checkpoint = torch.load(checkpoint)
 start_epoch = checkpoint['epoch'] + 1
 best_loss = checkpoint['best_loss']

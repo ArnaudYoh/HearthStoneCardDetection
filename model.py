@@ -7,7 +7,9 @@ import torchvision
 # The implementation is based around https://arxiv.org/pdf/1512.02325.pdf
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = "cpu"
+
+
+# device = "cpu"
 
 
 class PartialSSD300(nn.Module):
@@ -25,7 +27,8 @@ class PartialSSD300(nn.Module):
 
         # Since lower level features have considerably larger scales, we take the L2 norm and rescale
         # Rescale factor is initially set at 20, but is learned for each channel during back-prop
-        self.rescale_factors = nn.Parameter(torch.FloatTensor(1, 512, 1, 1))  # there are 512 channels in our feature map
+        self.rescale_factors = nn.Parameter(
+            torch.FloatTensor(1, 512, 1, 1))  # there are 512 channels in our feature map
         nn.init.constant_(self.rescale_factors, 20)
 
         # Prior boxes
@@ -62,7 +65,7 @@ class PartialSSD300(nn.Module):
         fmap_dim = 38
         scale = 0.1
         aspect_ratios = [1., 2., 0.5]
-        #aspect_ratios = [1., 2., 0.5, 3., 0.3]
+        # aspect_ratios = [1., 2., 0.5, 3., 0.3]
 
         prior_boxes = list()
         for i in range(fmap_dim):
@@ -75,7 +78,7 @@ class PartialSSD300(nn.Module):
 
                     # Add a large box for large objects
                     if a_r == 1.:
-                        additional_scale = 1. # This is empirical, I decided on it myself based on results
+                        additional_scale = 1.  # This is empirical, I decided on it myself based on results
                         prior_boxes.append([center_x, center_y, additional_scale, additional_scale])
 
         prior_boxes = torch.FloatTensor(prior_boxes).to(device)
@@ -144,7 +147,8 @@ class PartialSSD300(nn.Module):
 
                     # Suppress boxes whose overlaps (with this box) are greater than maximum overlap
                     # Find such boxes and update suppress indices
-                    suppress = torch.max(suppress, overlap[box] > max_overlap)
+                    other = (overlap[box] > max_overlap).byte()
+                    suppress = torch.max(suppress, other)
                     # The max operation retains previously suppressed boxes, like an 'OR' operation
 
                     # Don't suppress this box, even though it has an overlap of 1 with itself
@@ -181,6 +185,7 @@ class PartialSSD300(nn.Module):
 
         return all_images_boxes, all_images_labels, all_images_scores  # lists of length batch_size
 
+
 class PartialVGG16(nn.Module):
     """
     VGG base convolutions to produce lower-level feature maps.
@@ -212,7 +217,7 @@ class PartialVGG16(nn.Module):
                                      nn.ReLU(inplace=True),
                                      nn.Conv2d(256, 256, kernel_size=3, padding=1),
                                      nn.ReLU(inplace=True),
-                                     nn.MaxPool2d(kernel_size=2, stride=2),
+                                     nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),
 
                                      nn.Conv2d(256, 512, kernel_size=3, padding=1),
                                      nn.ReLU(inplace=True),
@@ -294,7 +299,6 @@ class PredictionLayers(nn.Module):
 
         # Predict boxes' bounds (as offsets w.r.t prior-boxes)
         pred_box = self.box_pred(feature_map)
-        print(pred_box.shape)
         pred_box = pred_box.permute(0, 2, 3, 1).contiguous()
         pred_box = pred_box.view(batch_size, -1, 4)
 
@@ -304,7 +308,6 @@ class PredictionLayers(nn.Module):
         pred_class = pred_class.view(batch_size, -1, self.n_classes)
 
         return pred_box, pred_class
-
 
 
 class ModelLoss(nn.Module):
@@ -363,7 +366,6 @@ class ModelLoss(nn.Module):
             label_for_each_prior[prior_max_overlap < self.threshold] = 0
             # CLASSES
             true_classes[i] = label_for_each_prior
-
 
         # Identify priors that are positive (object/non-background)
         accepted_priors = true_classes != 0
